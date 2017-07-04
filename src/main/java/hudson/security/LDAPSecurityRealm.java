@@ -768,6 +768,7 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
      */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException, DataAccessException {
+    	LOGGER.log(Level.FINE, "LDAPSecurityRealm.loadUserByUsername("+username+")");
         return updateUserDetails(getSecurityComponents().userDetails.loadUserByUsername(fixUsername(username)));
     }
 
@@ -1114,6 +1115,7 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
          * @see #loadUserByUsername(String)
          */
         public DelegatedLdapUserDetails loadUserByUsername(String configurationId, String username) throws UsernameNotFoundException, DataAccessException {
+        	LOGGER.log(Level.FINE, "DelegateLDAPUserDetailsService.loadUserByUsername("+configurationId+","+username+")");
             for (LDAPUserDetailsService delegate : delegates) {
                 if (delegate.configurationId.equals(configurationId)) {
                     LdapUserDetails userDetails = delegate.loadUserByUsername(username);
@@ -1129,6 +1131,7 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
 
         @Override
         public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException, DataAccessException {
+        	LOGGER.log(Level.FINE, "DelegateLDAPUserDetailsService.loadUserByUsername("+username+")");
             UsernameNotFoundException lastUNFE = null;
             for (LDAPUserDetailsService delegate : delegates) {
                 try {
@@ -1194,6 +1197,7 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
         }
 
         public LdapUserDetails loadUserByUsername(String username) throws UsernameNotFoundException, DataAccessException {
+        	LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername("+username+")");
             username = fixUsername(username);
             try {
                 final Jenkins jenkins = Jenkins.getInstance();
@@ -1211,6 +1215,7 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
                                     .get(username) : null;
                         }
                         if (cached != null && cached.isValid()) {
+                        	LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername("+username+"): user is cached.");
                             return cached.getValue();
                         }
                     }
@@ -1260,6 +1265,7 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
                                 ldapSecurityRealm.userDetailsCache =
                                         new CacheMap<String, LdapUserDetails>(ldapSecurityRealm.cache.getSize());
                             }
+                            LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername("+username+"): adding "+username+" to the cache.");
                             ldapSecurityRealm.userDetailsCache.put(username,
                                     new CacheEntry<LdapUserDetails>(ldapSecurityRealm.cache.getTtl(),
                                             ldapSecurityRealm.updateUserDetails(ldapUser)));
