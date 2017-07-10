@@ -773,7 +773,6 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
      */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException, DataAccessException {
-    	LOGGER.log(Level.FINE, "LDAPSecurityRealm.loadUserByUsername({0})",username);
         return updateUserDetails(getSecurityComponents().userDetails.loadUserByUsername(fixUsername(username)));
     }
 
@@ -1120,7 +1119,6 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
          * @see #loadUserByUsername(String)
          */
         public DelegatedLdapUserDetails loadUserByUsername(String configurationId, String username) throws UsernameNotFoundException, DataAccessException {
-        	LOGGER.log(Level.FINE, "DelegateLDAPUserDetailsService.loadUserByUsername({0},{1})",new String[]{configurationId,username});
             for (LDAPUserDetailsService delegate : delegates) {
                 if (delegate.configurationId.equals(configurationId)) {
                     LdapUserDetails userDetails = delegate.loadUserByUsername(username);
@@ -1136,7 +1134,6 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
 
         @Override
         public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException, DataAccessException {
-        	LOGGER.log(Level.FINE, "DelegateLDAPUserDetailsService.loadUserByUsername({0})",username);
             UsernameNotFoundException lastUNFE = null;
             for (LDAPUserDetailsService delegate : delegates) {
                 try {
@@ -1202,7 +1199,6 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
         }
 
         public LdapUserDetails loadUserByUsername(String username) throws UsernameNotFoundException, DataAccessException {
-        	LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername({0})",username);
             username = fixUsername(username);
             try {
                 final Jenkins jenkins = Jenkins.getInstance();
@@ -1225,7 +1221,7 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
                             }
                         }
                         if (cached != null && cached.isValid()) {
-                        	LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername({0}): user {0} is already cached.",username);
+                        	LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername({0}): loading user {0} from the cache.",username);
                             return cached.getValue();
                         }
                     }
@@ -1234,26 +1230,13 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
                 try {
                 	ldapUser = ldapSearch.searchForUser(username);
                 } catch (UsernameNotFoundException e)  {
-                	//Add to the 'not found' cache to avoid repeated calls to the LDAP for users that don't exist
-                	if (securityRealm instanceof LDAPSecurityRealm
-                            && (securityRealm.getSecurityComponents().userDetails == this
-                                || (securityRealm.getSecurityComponents().userDetails instanceof DelegateLDAPUserDetailsService
-                                    && ((DelegateLDAPUserDetailsService) securityRealm.getSecurityComponents().userDetails).contains(this))
-                                   )
-                            ) {
-                        LDAPSecurityRealm ldapSecurityRealm = (LDAPSecurityRealm) securityRealm;
-                        if (ldapSecurityRealm.cache != null) {
-                            synchronized (ldapSecurityRealm) {
-                                if (ldapSecurityRealm.usernameCacheNotFound == null) {
-                                    ldapSecurityRealm.usernameCacheNotFound =
-                                            new CacheMap<String, String>(ldapSecurityRealm.cache.getSize());
-                                }
-                                LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername({0}): adding {0} to the \"not found\" cache.",username);
-                                ldapSecurityRealm.usernameCacheNotFound.put(username,
-                                        new CacheEntry<String>(ldapSecurityRealm.cache.getTtl(),username));
-                            }
-                        }
-                    }
+                	if (securityRealm instanceof LDAPSecurityRealm 
+                			&& (securityRealm.getSecurityComponents().userDetails == this
+                			|| (securityRealm.getSecurityComponents().userDetails instanceof DelegateLDAPUserDetailsService
+                			&& ((DelegateLDAPUserDetailsService) securityRealm.getSecurityComponents().userDetails).contains(this)))) {
+                		LDAPSecurityRealm ldapSecurityRealm = (LDAPSecurityRealm) securityRealm;
+                		addNotFoundCacheEntry(ldapSecurityRealm,username);
+                	}
                 	throw e;
                 }
                 // LdapUserSearch does not populate granted authorities (group search).
@@ -1319,6 +1302,25 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
                 throw x;
             } catch (RuntimeException x) {
                 throw new LdapDataAccessException("Failed to search LDAP for " + username + ": " + x, x);
+            }
+        }
+        
+        /**
+         * Add to the 'not found' cache to avoid repeated calls to the LDAP for users that don't exist.
+         * @param ldapSecurityRealm
+         * @param username
+         */
+        private void addNotFoundCacheEntry (LDAPSecurityRealm ldapSecurityRealm, String username) {
+            if (ldapSecurityRealm.cache != null) {
+                synchronized (ldapSecurityRealm) {
+                    if (ldapSecurityRealm.usernameCacheNotFound == null) {
+                        ldapSecurityRealm.usernameCacheNotFound =
+                                new CacheMap<String, String>(ldapSecurityRealm.cache.getSize());
+                    }
+                    LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername({0}): adding {0} to the \"not found\" cache.",username);
+                    ldapSecurityRealm.usernameCacheNotFound.put(username,
+                            new CacheEntry<String>(ldapSecurityRealm.cache.getTtl(),username));
+                }
             }
         }
     }
