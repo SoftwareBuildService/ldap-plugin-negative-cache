@@ -28,11 +28,11 @@
   </properties>
 
   <scm>
-    <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
-    <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
+    <connection>scm:git:https://github.com/SoftwareBuildService/ldap-plugin-negative-cache.git</connection>
+    <developerConnection>scm:git:https://github.com/SoftwareBuildService/ldap-plugin-negative-cache.git</developerConnection>
+    <url>https://github.com/SoftwareBuildService/ldap-plugin-negative-cache</url>
     <tag>HEAD</tag>
   </scm>
-
   <repositories>
     <repository>
       <id>repo.jenkins-ci.org</id>
