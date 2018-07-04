@@ -392,7 +392,7 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
      * The {@link UserDetails} cache.
      */
     private transient Map<String,CacheEntry<LdapUserDetails>> userDetailsCache = null;
-
+    
     /**
      * The group details cache.
      */
@@ -1253,6 +1253,12 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
         public final LdapAuthoritiesPopulator authoritiesPopulator;
         public final LDAPGroupMembershipStrategy groupMembershipStrategy;
         public final String configurationId;
+        
+        /**
+         * The username cache for not found users. The purpose is to avoid making repeated calls to the LDAP when a user is not found in it. 
+         */
+        private transient Map<String,CacheEntry<String>> usernameCacheNotFound = null;
+        
         /**
          * {@link BasicAttributes} in LDAP tend to be bulky (about 20K at size), so interning them
          * to keep the size under control. When a programmatic client is not smart enough to
@@ -1305,13 +1311,31 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
                         synchronized (ldapSecurityRealm) {
                             cached = (ldapSecurityRealm.userDetailsCache != null) ? ldapSecurityRealm.userDetailsCache
                                     .get(username) : null;
+                            if (usernameCacheNotFound != null && usernameCacheNotFound.get(username) != null
+                            		&& usernameCacheNotFound.get(username).isValid()) {
+                            	LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername({0}): user {0} is already cached as not found.",username);
+                            	throw new UsernameNotFoundException("User " + username + " not found in directory (already cached as not found).");
+                            }
                         }
                         if (cached != null && cached.isValid()) {
+                        	LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername({0}): loading user {0} from the cache.",username);
                             return cached.getValue();
                         }
                     }
                 }
-                LdapUserDetails ldapUser = ldapSearch.searchForUser(username);
+                LdapUserDetails ldapUser = null;
+                try {
+                	ldapUser = ldapSearch.searchForUser(username);
+                } catch (UsernameNotFoundException e)  {
+                	if (securityRealm instanceof LDAPSecurityRealm 
+                			&& (securityRealm.getSecurityComponents().userDetails == this
+                			|| (securityRealm.getSecurityComponents().userDetails instanceof DelegateLDAPUserDetailsService
+                			&& ((DelegateLDAPUserDetailsService) securityRealm.getSecurityComponents().userDetails).contains(this)))) {
+                		LDAPSecurityRealm ldapSecurityRealm = (LDAPSecurityRealm) securityRealm;
+                		addNotFoundCacheEntry(ldapSecurityRealm,username);
+                	}
+                	throw e;
+                }
                 // LdapUserSearch does not populate granted authorities (group search).
                 // Add those, as done in LdapAuthenticationProvider.createUserDetails().
                 if (ldapUser != null) {
@@ -1356,6 +1380,7 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
                                 ldapSecurityRealm.userDetailsCache =
                                         new CacheMap<String, LdapUserDetails>(ldapSecurityRealm.cache.getSize());
                             }
+                            LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername({0}): adding {0} to the cache.",username);
                             ldapSecurityRealm.userDetailsCache.put(username,
                                     new CacheEntry<LdapUserDetails>(ldapSecurityRealm.cache.getTtl(),
                                             ldapSecurityRealm.updateUserDetails(ldapUser)));
@@ -1368,6 +1393,25 @@ public class LDAPSecurityRealm extends AbstractPasswordBasedSecurityRealm {
                 throw x;
             } catch (RuntimeException x) {
                 throw new LdapDataAccessException("Failed to search LDAP for " + username, x);
+            }
+        }
+        
+        /**
+         * Add to the 'not found' cache to avoid repeated calls to the LDAP for users that don't exist.
+         * @param ldapSecurityRealm
+         * @param username
+         */
+        private void addNotFoundCacheEntry (LDAPSecurityRealm ldapSecurityRealm, String username) {
+            if (ldapSecurityRealm.cache != null) {
+                synchronized (ldapSecurityRealm) {
+                    if (usernameCacheNotFound == null) {
+                        usernameCacheNotFound =
+                                new CacheMap<String, String>(ldapSecurityRealm.cache.getSize());
+                    }
+                    LOGGER.log(Level.FINE, "LDAPUserDetailsService.loadUserByUsername({0}): adding {0} to the \"not found\" cache.",username);
+                    usernameCacheNotFound.put(username,
+                            new CacheEntry<String>(ldapSecurityRealm.cache.getTtl(),username));
+                }
             }
         }
     }
