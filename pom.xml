@@ -9,7 +9,7 @@
   </parent>
 
   <artifactId>ldap</artifactId>
-  <version>1.20.2-SBS</version>
+  <version>1.21-SNAPSHOT</version>
   <packaging>hpi</packaging>
 
   <name>LDAP Plugin</name>
@@ -34,7 +34,7 @@
     <connection>scm:git:https://github.com/SoftwareBuildService/ldap-plugin-negative-cache.git</connection>
     <developerConnection>scm:git:https://github.com/SoftwareBuildService/ldap-plugin-negative-cache.git</developerConnection>
     <url>https://github.com/SoftwareBuildService/ldap-plugin-negative-cache</url>
-    <tag>ldap-1.20.2-SBS</tag>
+    <tag>HEAD</tag>
   </scm>
   <repositories>
     <repository>
